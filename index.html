@@ -32,7 +32,7 @@ tr.r{cursor:pointer}tr.r:hover{background:var(--bg)}.det{background:var(--bg);pa
 <div class="hero"><h1>ED Trainee Logbook</h1><p id="sub">Log your cases · submit before you leave</p></div>
 <div class="wrap" id="app"></div><div id="bar"></div>
 <script>
-const API='PASTE_WEB_APP_URL_HERE';
+const API='https://script.google.com/macros/s/AKfycbwtzYcjvwgWvs_QQSWv41y263pj5EKgkL2YUncwkiITBC4A0D0pp29EPPxXIch0X0FKsA/exec';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const call=async b=>{try{const r=await fetch(API,{method:'POST',body:JSON.stringify(b)});return await r.json()}catch(e){return{error:'Connection problem. Check your internet and try again.'}}};
 const tm=(ms,o)=>new Date(ms).toLocaleString('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true,...o});
