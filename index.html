@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ED Trainee Logbook</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f3f7f8;--card:#fff;--ink:#12303a;--mut:#6b8790;--line:#dfe9ec;--pri:#0d9488;--pri2:#0f766e;--ok:#16a34a;--warn:#d97706;--bad:#dc2626}
+@media(prefers-color-scheme:dark){:root{--bg:#0c1a1f;--card:#13262d;--ink:#e6f2f4;--mut:#8fa9b1;--line:#22404a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif}
+.hero{background:linear-gradient(135deg,#0f766e,#0d9488 60%,#14b8a6);color:#fff;padding:28px 20px 56px;padding-top:max(28px,env(safe-area-inset-top))}
+.hero h1{margin:0;font-size:22px}.hero p{margin:4px 0 0;opacity:.85;font-size:14px}
+.wrap{max-width:760px;margin:-34px auto 0;padding:0 14px 110px}.wide{max-width:1000px}
+.card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 6px 24px rgba(8,50,60,.09);margin-bottom:14px}
+label{display:block;font-weight:600;font-size:13px;margin:12px 0 5px}
+input,select{width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:11px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus,select:focus{outline:none;border-color:var(--pri)}
+.btn{border:0;border-radius:12px;padding:13px 18px;font:600 15px Inter,sans-serif;background:var(--pri);color:#fff;cursor:pointer;width:100%}
+.btn:disabled{background:var(--line);color:var(--mut);cursor:not-allowed}.btn.s{width:auto;padding:9px 14px;font-size:13px}.btn.g{background:transparent;color:var(--pri);border:1.5px dashed var(--pri)}
+.row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.mut{color:var(--mut);font-size:13px}
+.chip{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;background:var(--bg)}
+.st-submitted{background:#dcfce7;color:#166534}.st-active{background:#dbeafe;color:#1e40af}.st-pending{background:#fef3c7;color:#92400e}.st-missed{background:#fee2e2;color:#991b1b}.st-upcoming{background:var(--line)}
+.cases{display:grid;grid-template-columns:28px 1fr 1.6fr;gap:8px;align-items:center}.cases b{color:var(--mut);font-size:12px;text-align:center}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:12px 14px calc(12px + env(safe-area-inset-bottom));z-index:5}
+.bar>div{max-width:760px;margin:auto}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border-radius:14px;padding:14px;box-shadow:0 4px 14px rgba(8,50,60,.07)}.stat b{font-size:26px;display:block}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-size:12px;color:var(--mut);padding:8px;border-bottom:1px solid var(--line)}td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.r{cursor:pointer}tr.r:hover{background:var(--bg)}.det{background:var(--bg);padding:10px 14px;border-radius:10px}
+.toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#991b1b;color:#fff;padding:12px 18px;border-radius:12px;z-index:9;max-width:90%;box-shadow:0 8px 24px #0004}
+.tbl{overflow-x:auto}.link{color:var(--pri);cursor:pointer;font-size:13px;text-decoration:underline}
+</style></head><body>
+<div class="hero"><h1>ED Trainee Logbook</h1><p id="sub">Log your cases · submit before you leave</p></div>
+<div class="wrap" id="app"></div><div id="bar"></div>
+<script>
+const API='PASTE_WEB_APP_URL_HERE';
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const call=async b=>{try{const r=await fetch(API,{method:'POST',body:JSON.stringify(b)});return await r.json()}catch(e){return{error:'Connection problem. Check your internet and try again.'}}};
+const tm=(ms,o)=>new Date(ms).toLocaleString('en-GB',{timeZone:'Asia/Riyadh',hour:'2-digit',minute:'2-digit',hour12:true,...o});
+const toast=m=>{const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),5000)};
+let S,cases,off=0,timer,saveT;
+
+/* ---------- Trainee ---------- */
+async function loginView(){
+  clearInterval(timer);$('#bar').innerHTML='';$('#sub').textContent='Log your cases · submit before you leave';
+  const r=await call({a:'init'});const sp=r.specialties||[];
+  $('#app').innerHTML=`<div class="card"><h3 style="margin:0 0 4px">Start your shift</h3><div class="mut">Your shift is detected automatically from the time you sign in.</div>
+  <label>Full name (first & last)</label><input id="nm" placeholder="e.g. Ahmed Alharbi" autocomplete="name">
+  <label>Specialty</label><select id="sp"><option value="">Choose…</option>${sp.map(s=>`<option>${esc(s)}</option>`).join('')}</select>
+  <div id="ot" hidden><label>Your specialty</label><input id="ot2" placeholder="Type your specialty"></div><br>
+  <button class="btn" id="go">Start</button></div><div style="text-align:center"><a class="link" href="#admin" onclick="setTimeout(init)">Admin</a></div>`;
+  $('#sp').onchange=e=>$('#ot').hidden=e.target.value!='Others';
+  $('#go').onclick=async()=>{const b=$('#go');b.disabled=true;b.textContent='Please wait…';
+    const r=await call({a:'login',name:$('#nm').value,specialty:$('#sp').value,other:$('#ot2').value});
+    b.disabled=false;b.textContent='Start';if(r.error)return toast(r.error);localStorage.sid=r.session.id;show(r.session)}
+}
+function show(s){
+  S=s;off=s.now-Date.now();clearInterval(timer);
+  $('#sub').textContent=s.name+' · '+s.specialty;
+  const head=`<div class="card"><div class="row"><div><b>${esc(s.shift)}</b><div class="mut">${tm(s.start)} → ${tm(s.end)} · ${tm(s.start,{weekday:'short',day:'numeric',month:'short',hour:undefined,minute:undefined,hour12:undefined})}</div></div><div style="text-align:right;flex:0"><span class="chip st-${s.status}" id="chip">${s.status}</span></div></div></div>`;
+  if(s.status=='submitted'){
+    $('#bar').innerHTML='';
+    $('#app').innerHTML=head+`<div class="card" style="text-align:center"><div style="font-size:44px">✅</div><h3 style="margin:4px 0">Submitted</h3><div class="mut">${s.cases.length} case(s) logged · ${tm(s.submittedAt)}</div><br><button class="btn s" onclick="out()">Done</button></div>`;return}
+  cases=s.cases.map(x=>({...x}));while(cases.length<5)cases.push({m:'',c:''});
+  $('#app').innerHTML=head+`<div class="card"><div class="row" style="margin-bottom:10px"><b>Cases <span class="mut" id="cnt"></span></b><span class="mut" id="sv" style="text-align:right">Auto-saved</span></div><div class="cases"><span></span><b>Patient MRN</b><b>Chief complaint</b><span id="rows" style="display:contents"></span></div><br><button class="btn g" id="add">+ Add row</button></div><div style="text-align:center"><a class="link" onclick="out()">Not you? Switch user</a></div>`;
+  drawRows();$('#add').onclick=()=>{cases.push({m:'',c:''});drawRows(true)};
+  $('#bar').innerHTML=`<div class="bar"><div><button class="btn" id="sub2" disabled></button><div class="mut" id="msg" style="text-align:center;margin-top:4px"></div></div></div>`;
+  $('#sub2').onclick=submit;tick();timer=setInterval(tick,1000);
+}
+function drawRows(focus){
+  $('#rows').innerHTML=cases.map((x,i)=>`<b>${i+1}</b><input data-i="${i}" data-k="m" value="${esc(x.m)}" placeholder="MRN" inputmode="numeric"><input data-i="${i}" data-k="c" value="${esc(x.c)}" placeholder="e.g. Chest pain">`).join('');
+  $('#rows').querySelectorAll('input').forEach(el=>el.oninput=()=>{cases[el.dataset.i][el.dataset.k]=el.value;count();$('#sv').textContent='Saving…';clearTimeout(saveT);saveT=setTimeout(async()=>{const r=await call({a:'save',id:S.id,cases});$('#sv').textContent=r.ok?'Saved ✓':'Not saved — check connection'},1000)});
+  count();if(focus){const l=$('#rows').querySelectorAll('input');l[l.length-2].focus()}
+}
+const count=()=>$('#cnt').textContent='· '+cases.filter(x=>x.m.trim()||x.c.trim()).length+' filled';
+function tick(){
+  const n=Date.now()+off,b=$('#sub2');if(!b)return;
+  if(n<S.opens){const d=Math.ceil((S.opens-n)/6e4);b.disabled=true;b.textContent='Submit opens at '+tm(S.opens);$('#msg').textContent='In '+(d>=60?Math.floor(d/60)+'h ':'')+d%60+'m · you must be inside the hospital'}
+  else if(n>S.closes){b.disabled=true;b.textContent='Submission closed';$('#msg').textContent='Contact your supervisor'}
+  else{b.disabled=false;b.textContent='Submit logbook';$('#msg').textContent='Location will be checked'}
+}
+function submit(){
+  const b=$('#sub2');b.disabled=true;b.textContent='Checking location…';
+  if(!navigator.geolocation){tick();return toast('Location is not supported on this device.')}
+  navigator.geolocation.getCurrentPosition(async p=>{
+    const r=await call({a:'submit',id:S.id,cases,lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy});
+    if(r.error){toast(r.error);tick()}else show(r.session)},
+  ()=>{toast('Location is required. Allow location access and try again.');tick()},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+function out(){localStorage.removeItem('sid');loginView()}
+
+/* ---------- Admin ---------- */
+let pw=sessionStorage.pw,D=[];
+function adminLogin(){
+  $('#bar').innerHTML='';$('#sub').textContent='Admin dashboard';
+  $('#app').innerHTML=`<div class="card"><h3 style="margin:0">Admin sign-in</h3><label>Password</label><input id="pw" type="password"><br><button class="btn" id="go">Sign in</button></div><div style="text-align:center"><a class="link" href="#" onclick="setTimeout(init)">← Trainee page</a></div>`;
+  $('#go').onclick=()=>{pw=$('#pw').value;load(true)};
+}
+async function load(first){
+  const f=$('#f')?.value||'',t=$('#t')?.value||f;
+  const r=await call({a:'admin',pw,from:f||'0000',to:t||'9999'});
+  if(r.error){if(first)toast(r.error);return adminLogin()}
+  sessionStorage.pw=pw;D=r;if(!f){const d=r.today;return dash(d,d,true)}
+  dash(f,t)
+}
+async function dash(f,t,again){
+  if(again){const r=await call({a:'admin',pw,from:f,to:t});D=r}
+  const L=D.sessions,sub=L.filter(x=>x.status=='submitted'),n=s=>L.filter(x=>x.status==s).length;
+  const specs=[...new Set(L.map(x=>x.specialty))].sort(),sel=window.fs||'';
+  const V=L.filter(x=>!sel||x.specialty==sel);
+  $('#app').className='wrap wide';
+  $('#app').innerHTML=`${D.locationSet?'':`<div class="card" style="border-left:5px solid var(--warn)"><b>Hospital location is not set</b><div class="mut">Location is not enforced until you set it. Stand inside the hospital and tap below.</div><br><button class="btn s" onclick="setLoc()">Set hospital location to my current position</button></div>`}
+  <div class="card"><div class="row"><div><label style="margin-top:0">From</label><input type="date" id="f" value="${f}"></div><div><label style="margin-top:0">To</label><input type="date" id="t" value="${t}"></div><div><label style="margin-top:0">Specialty</label><select id="fs"><option value="">All</option>${specs.map(s=>`<option ${s==sel?'selected':''}>${esc(s)}</option>`).join('')}</select></div></div></div>
+  <div class="stats"><div class="stat"><span class="mut">Trainees</span><b>${L.length}</b></div><div class="stat"><span class="mut">Submitted</span><b style="color:var(--ok)">${sub.length}</b></div><div class="stat"><span class="mut">In progress</span><b style="color:#1e40af">${n('active')+n('upcoming')}</b></div><div class="stat"><span class="mut">Awaiting submit</span><b style="color:var(--warn)">${n('pending')}</b></div><div class="stat"><span class="mut">Not submitted</span><b style="color:var(--bad)">${n('missed')}</b></div><div class="stat"><span class="mut">Total cases</span><b>${L.reduce((a,x)=>a+x.cases.length,0)}</b></div></div>
+  <div class="card"><div class="row" style="margin-bottom:8px"><b>Shifts (${V.length})</b><span style="text-align:right;flex:0"><button class="btn s" id="ex">Export Excel/CSV</button></span></div>
+  <div class="tbl"><table><tr><th>Date</th><th>Name</th><th>Specialty</th><th>Shift</th><th>Status</th><th>Cases</th></tr>${V.map((x,i)=>`<tr class="r" onclick="document.getElementById('d${i}').hidden^=1"><td>${x.date}</td><td><b>${esc(x.name)}</b></td><td>${esc(x.specialty)}</td><td>${esc(x.shift)}</td><td><span class="chip st-${x.status}">${x.status=='missed'?'not submitted':x.status}</span></td><td>${x.cases.length}</td></tr><tr id="d${i}" hidden><td colspan="6"><div class="det">${x.cases.length?x.cases.map((c,j)=>`${j+1}. <b>${esc(c.m)}</b> — ${esc(c.c)}`).join('<br>'):'<span class="mut">No cases entered</span>'}${x.submittedAt?`<div class="mut" style="margin-top:6px">Submitted ${tm(x.submittedAt)} · location ${esc(x.geo)}</div>`:''}</div></td></tr>`).join('')||'<tr><td colspan="6" class="mut">No shifts in this range.</td></tr>'}</table></div></div>
+  <div style="text-align:center"><a class="link" onclick="sessionStorage.clear();location.hash='';init()">Sign out</a></div>`;
+  $('#f').onchange=$('#t').onchange=()=>dash($('#f').value,$('#t').value||$('#f').value,true);
+  $('#fs').onchange=e=>{window.fs=e.target.value;dash($('#f').value,$('#t').value,false)};
+  $('#ex').onclick=()=>{const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
+    const rows=[['Date','Name','Specialty','Shift','Status','MRN','Chief complaint']];
+    V.forEach(x=>(x.cases.length?x.cases:[{m:'',c:''}]).forEach(c=>rows.push([x.date,x.name,x.specialty,x.shift,x.status,c.m,c.c])));
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}));a.download=`logbook_${f}_${t}.csv`;a.click()};
+}
+function setLoc(){navigator.geolocation.getCurrentPosition(async p=>{const r=await call({a:'setLocation',pw,lat:p.coords.latitude,lng:p.coords.longitude});r.ok?(toast2('Hospital location saved (radius 150 m).'),dash($('#f').value,$('#t').value,true)):toast(r.error)},()=>toast('Allow location access first.'),{enableHighAccuracy:true})}
+const toast2=m=>{toast(m);document.querySelector('.toast').style.background='#166534'};
+
+function init(){
+  $('#app').className='wrap';
+  if(location.hash=='#admin'){pw?load():adminLogin();return}
+  const id=localStorage.sid;if(!id)return loginView();
+  call({a:'get',id}).then(r=>r.session?show(r.session):loginView());
+}
+window.onhashchange=init;init();
+</script></body></html>
